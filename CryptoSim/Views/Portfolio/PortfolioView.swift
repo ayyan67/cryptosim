@@ -10,7 +10,9 @@ import SwiftUI
 struct PortfolioView: View {
     @EnvironmentObject var marketStore: MarketStore
     @EnvironmentObject var portfolioStore: PortfolioStore
-    @State private var showingPerformance = false
+    @EnvironmentObject var analytics: LocalAnalyticsTracker
+    @EnvironmentObject var router: TabRouter
+    @State private var showingResetConfirmation = false
 
     private var totalBalance: Double {
         portfolioStore.totalPortfolioValue(coins: marketStore.coins)
@@ -40,11 +42,36 @@ struct PortfolioView: View {
             }
             .navigationTitle("Portfolio")
             .background(Color.appBackground)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Menu {
+                        Button(role: .destructive) {
+                            showingResetConfirmation = true
+                        } label: {
+                            Label("Reset Portfolio", systemImage: "arrow.counterclockwise")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                    }
+                }
+            }
+            .confirmationDialog(
+                "Reset Portfolio?",
+                isPresented: $showingResetConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button("Reset to \(Formatters.currency(PortfolioStore.startingBalance))", role: .destructive) {
+                    portfolioStore.resetPortfolio()
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This clears all holdings and transaction history. Your watchlist is kept.")
+            }
             .refreshable {
                 await marketStore.refresh(force: true, source: .pullToRefresh)
             }
-            .sheet(isPresented: $showingPerformance) {
-                PerformanceView()
+            .onAppear {
+                analytics.track(.screenViewed(name: "portfolio"))
             }
         }
     }
@@ -79,8 +106,11 @@ struct PortfolioView: View {
         .padding(.horizontal)
     }
 
+    // Performance is drill-down content within the portfolio hierarchy,
+    // so it's a push (v1 presented it as a sheet — sheets are for modal
+    // tasks like trading, not for navigation).
     private var performanceButton: some View {
-        Button(action: { showingPerformance = true }) {
+        NavigationLink(destination: PerformanceView()) {
             HStack {
                 Image(systemName: "chart.line.uptrend.xyaxis")
                     .font(.title2)
@@ -131,11 +161,17 @@ struct PortfolioView: View {
             if portfolioStore.holdings.isEmpty {
                 emptyHoldings
             } else {
+                // Every persisted holding gets a row. Coins with no live
+                // price (dropped out of the top-30 payload) still render
+                // from stored data — they just aren't tappable, since the
+                // detail screen needs market data.
                 ForEach(portfolioStore.holdings, id: \.coinId) { holding in
                     if let coin = marketStore.coin(withId: holding.coinId) {
-                        NavigationLink(destination: HoldingsDetailView(holding: holding, coin: coin)) {
+                        NavigationLink(destination: CoinDetailView(coin: coin)) {
                             HoldingRow(holding: holding, coin: coin)
                         }
+                    } else {
+                        HoldingRow(holding: holding, coin: nil)
                     }
                 }
             }
@@ -153,6 +189,11 @@ struct PortfolioView: View {
             Text("Buy some crypto to get started!")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
+            Button("Browse Market") {
+                router.selection = .market
+            }
+            .buttonStyle(.borderedProminent)
+            .padding(.top, 4)
         }
         .frame(maxWidth: .infinity)
         .padding(40)
@@ -164,12 +205,15 @@ struct PortfolioView: View {
 
 struct HoldingRow: View {
     let holding: Holding
-    let coin: CoinMarketData
+    /// Live market data; nil when the coin isn't in the current payload.
+    let coin: CoinMarketData?
     @EnvironmentObject var portfolioStore: PortfolioStore
     @EnvironmentObject var marketStore: MarketStore
 
     private var currentValue: Double {
-        holding.amount * coin.currentPrice
+        // Without a live price, show cost basis (matches how the store
+        // values the position in the portfolio total).
+        coin.map { holding.amount * $0.currentPrice } ?? holding.totalCost
     }
 
     private var gainLossPercentage: Double {
@@ -178,14 +222,19 @@ struct HoldingRow: View {
 
     var body: some View {
         HStack {
-            CoinIconView(imageURL: coin.image, symbol: coin.symbol, size: 45, placeholderTint: .gray)
+            CoinIconView(
+                imageURL: coin?.image ?? holding.imageUrl,
+                symbol: holding.symbol,
+                size: 45,
+                placeholderTint: .gray
+            )
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(coin.name)
+                Text(coin?.name ?? holding.coinName)
                     .font(.headline)
                     .foregroundColor(.primary)
 
-                Text("\(Formatters.coinAmount(holding.amount)) \(coin.symbol.uppercased())")
+                Text("\(Formatters.coinAmount(holding.amount)) \(holding.symbol.uppercased())")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
             }
@@ -197,9 +246,15 @@ struct HoldingRow: View {
                     .font(.headline)
                     .foregroundColor(.primary)
 
-                Text(Formatters.signedPercent(gainLossPercentage))
-                    .font(.subheadline)
-                    .foregroundColor(gainLossPercentage >= 0 ? .green : .red)
+                if coin != nil {
+                    Text(Formatters.signedPercent(gainLossPercentage))
+                        .font(.subheadline)
+                        .foregroundColor(gainLossPercentage >= 0 ? .green : .red)
+                } else {
+                    Text("price unavailable")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
             }
         }
         .padding()

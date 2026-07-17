@@ -6,11 +6,11 @@ Originally built as my COSC 4355 (iOS development) final project at the Universi
 
 ## Features
 
-- **Portfolio** — total balance, cash, holdings with live P&L, performance breakdown and asset allocation
+- **Portfolio** — total balance, cash, holdings with live P&L, performance breakdown, asset allocation, one-tap reset to $10K
 - **Market** — top 30 coins by market cap, search, four sort modes, pull-to-refresh, inline buy
-- **Coin detail** — price chart with 6 time ranges (1D → All), market stats, buy/sell, watchlist star
-- **Trading** — buy/sell sheet with validation, quick-percent fills (25/50/75/MAX), confirmation dialog, haptics
-- **Watchlist** — star coins, swipe to remove, add sheet with search
+- **Coin detail** — one position-aware screen reached from every tab: chart with 6 time ranges (1D → All), "Your Position" (amount, value, avg cost, P&L) when held, market stats, buy/sell, watchlist star
+- **Trading** — buy/sell sheet with live validation, quick-percent fills (25/50/75/MAX), confirmation dialog, haptics
+- **Watchlist** — star coins, swipe to remove, add sheet with search; entries survive coins dropping out of the top 30
 - **History** — every trade, filterable by buy/sell, searchable
 - **Metrics (DEBUG builds)** — live API latency percentiles (p50/p95), error rate, per-endpoint breakdown, analytics event stream
 
@@ -25,7 +25,7 @@ Originally built as my COSC 4355 (iOS development) final project at the Universi
 | Networking | `URLSession` + async/await, protocol-based client with retry/backoff |
 | API | CoinGecko v3 (free tier, no key), 30s TTL cache + rate-limit fallback |
 | Observability | `os.Logger` categories, typed analytics events, request metrics |
-| Testing | XCTest — 64 unit tests over stores, view models, networking, decoding |
+| Testing | XCTest — 72 unit tests over stores, view models, networking, decoding |
 
 ## Running it
 

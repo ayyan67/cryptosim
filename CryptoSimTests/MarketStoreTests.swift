@@ -78,4 +78,41 @@ final class MarketStoreTests: XCTestCase {
         XCTAssertEqual(store.coin(withId: "ethereum")?.id, "ethereum")
         XCTAssertNil(store.coin(withId: "dogecoin"))
     }
+
+    // MARK: - Auto-refresh lifecycle
+
+    func testAutoRefreshTimerTriggersRefresh() async throws {
+        service.coinsToReturn = [makeCoin()]
+        store.startAutoRefresh(interval: 0.05)
+        defer { store.stopAutoRefresh() }
+
+        // Give the timer a few ticks' worth of time.
+        let deadline = Date().addingTimeInterval(2)
+        while service.fetchTopCoinsCallCount == 0 && Date() < deadline {
+            try await Task.sleep(nanoseconds: 20_000_000)
+        }
+
+        XCTAssertGreaterThanOrEqual(service.fetchTopCoinsCallCount, 1)
+    }
+
+    func testForegroundingTriggersRefresh() async {
+        service.coinsToReturn = [makeCoin()]
+
+        store.setSceneActive(false)
+        store.setSceneActive(true)
+        // Let the fire-and-forget refresh Task run.
+        for _ in 0..<20 { await Task.yield() }
+
+        XCTAssertEqual(service.fetchTopCoinsCallCount, 1)
+    }
+
+    func testRedundantActivationDoesNotRefresh() async {
+        service.coinsToReturn = [makeCoin()]
+
+        // Scene starts active; re-asserting active must not refresh.
+        store.setSceneActive(true)
+        for _ in 0..<20 { await Task.yield() }
+
+        XCTAssertEqual(service.fetchTopCoinsCallCount, 0)
+    }
 }

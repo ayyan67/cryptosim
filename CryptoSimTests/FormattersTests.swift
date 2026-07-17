@@ -43,6 +43,19 @@ final class FormattersTests: XCTestCase {
         XCTAssertEqual(Formatters.largeCurrency(999), "$999.00")
     }
 
+    func testCoinAmountTrimsTrailingZeros() {
+        XCTAssertEqual(Formatters.coinAmount(0.05), "0.05")
+        XCTAssertEqual(Formatters.coinAmount(0.123456), "0.123456")
+        XCTAssertEqual(Formatters.coinAmount(2.0), "2")
+        XCTAssertEqual(Formatters.coinAmount(0), "0")
+    }
+
+    func testFloorToCoinPrecisionNeverRoundsUp() {
+        XCTAssertEqual(Formatters.floorToCoinPrecision(1.9999999), 1.999999, accuracy: 1e-12)
+        XCTAssertEqual(Formatters.floorToCoinPrecision(0.1234567), 0.123456, accuracy: 1e-12)
+        XCTAssertEqual(Formatters.floorToCoinPrecision(2.0), 2.0, accuracy: 1e-12)
+    }
+
     func testParseAmountAcceptsDotAndComma() {
         XCTAssertEqual(Formatters.parseAmount("0.5") ?? 0, 0.5, accuracy: 1e-12)
         XCTAssertEqual(Formatters.parseAmount("0,5") ?? 0, 0.5, accuracy: 1e-12)

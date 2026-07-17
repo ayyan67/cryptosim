@@ -2,9 +2,12 @@
 //  CoinDetailView.swift
 //  CryptoSim
 //
-//  Coin detail: header, interactive time-range chart, market stats, and
-//  buy/sell actions. Chart loads use .task(id:) so switching ranges
-//  cancels the previous in-flight request instead of racing it.
+//  The one canonical coin screen, reached identically from Market,
+//  Watchlist, and Portfolio. It is position-aware: when the user holds
+//  the coin, a "Your Position" section appears (queried live from the
+//  store each render — nothing retains a Holding that a sell might
+//  delete). Chart loads use .task(id:) so switching ranges cancels the
+//  in-flight request instead of racing it.
 //
 
 import SwiftUI
@@ -13,6 +16,7 @@ struct CoinDetailView: View {
     let coin: CoinMarketData
     @EnvironmentObject var marketStore: MarketStore
     @EnvironmentObject var portfolioStore: PortfolioStore
+    @EnvironmentObject var analytics: LocalAnalyticsTracker
 
     @State private var showingBuySheet = false
     @State private var showingSellSheet = false
@@ -27,8 +31,9 @@ struct CoinDetailView: View {
         portfolioStore.isInWatchlist(coinId: coin.id)
     }
 
-    private var hasHoldings: Bool {
-        portfolioStore.hasHolding(for: coin.id)
+    /// Queried live so a sell-everything immediately removes the section.
+    private var holding: Holding? {
+        portfolioStore.holding(for: coin.id)
     }
 
     var body: some View {
@@ -37,6 +42,10 @@ struct CoinDetailView: View {
                 header
 
                 chartSection
+
+                if let holding {
+                    positionSection(holding)
+                }
 
                 marketStats
 
@@ -48,7 +57,7 @@ struct CoinDetailView: View {
         .toolbar {
             ToolbarItem(placement: .navigationBarTrailing) {
                 Button(action: {
-                    portfolioStore.toggleWatchlist(coinId: coin.id)
+                    portfolioStore.toggleWatchlist(coin: coin)
                 }) {
                     Image(systemName: isInWatchlist ? "star.fill" : "star")
                         .foregroundColor(isInWatchlist ? .yellow : .primary)
@@ -64,6 +73,9 @@ struct CoinDetailView: View {
         }
         .task(id: selectedRangeIndex) {
             await loadChart(days: Self.timeRangeDays[selectedRangeIndex])
+        }
+        .onAppear {
+            analytics.track(.coinDetailOpened(coinId: coin.id))
         }
     }
 
@@ -112,7 +124,10 @@ struct CoinDetailView: View {
 
             HStack {
                 ForEach(0..<Self.timeRanges.count, id: \.self) { index in
-                    Button(action: { selectedRangeIndex = index }) {
+                    Button(action: {
+                        selectedRangeIndex = index
+                        analytics.track(.chartRangeChanged(coinId: coin.id, days: Self.timeRangeDays[index]))
+                    }) {
                         Text(Self.timeRanges[index])
                             .font(.caption)
                             .fontWeight(.medium)
@@ -125,6 +140,41 @@ struct CoinDetailView: View {
                 }
             }
             .frame(maxWidth: .infinity)
+            .padding(.horizontal)
+        }
+    }
+
+    private func positionSection(_ holding: Holding) -> some View {
+        let currentValue = holding.amount * coin.currentPrice
+        let gainLoss = currentValue - holding.totalCost
+        let gainLossPercentage = holding.totalCost > 0 ? (gainLoss / holding.totalCost) * 100 : 0
+
+        return VStack(alignment: .leading, spacing: 15) {
+            Text("Your Position")
+                .font(.headline)
+                .padding(.horizontal)
+
+            VStack(spacing: 12) {
+                HStack(spacing: 12) {
+                    StatCard(
+                        title: "You Own",
+                        value: "\(Formatters.coinAmount(holding.amount)) \(coin.symbol.uppercased())"
+                    )
+                    StatCard(title: "Value", value: Formatters.currency(currentValue))
+                }
+
+                HStack(spacing: 12) {
+                    StatCard(
+                        title: "Avg Buy Price",
+                        value: Formatters.currency(holding.averageBuyPrice)
+                    )
+                    StatCard(
+                        title: "Total P&L",
+                        value: "\(Formatters.signedCurrency(gainLoss)) (\(Formatters.signedPercent(gainLossPercentage)))",
+                        valueColor: gainLoss >= 0 ? .green : .red
+                    )
+                }
+            }
             .padding(.horizontal)
         }
     }
@@ -153,7 +203,7 @@ struct CoinDetailView: View {
     private var actionButtons: some View {
         VStack(spacing: 12) {
             Button(action: { showingBuySheet = true }) {
-                Text("Buy")
+                Text(holding != nil ? "Buy More" : "Buy")
                     .font(.headline)
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
@@ -168,10 +218,10 @@ struct CoinDetailView: View {
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(hasHoldings ? Color.red : Color.gray)
+                    .background(holding != nil ? Color.red : Color.gray)
                     .cornerRadius(12)
             }
-            .disabled(!hasHoldings)
+            .disabled(holding == nil)
         }
         .padding(.horizontal)
         .padding(.bottom, 30)

@@ -23,12 +23,6 @@ final class MarketViewModel: ObservableObject {
     @Published var sortOption: SortOption = .marketCap
     @Published var sortAscending = false
 
-    private let analytics: AnalyticsTracking
-
-    init(analytics: AnalyticsTracking = NoOpAnalyticsTracker()) {
-        self.analytics = analytics
-    }
-
     /// The rows the Market list should display for the given source data.
     func displayCoins(from coins: [CoinMarketData]) -> [CoinMarketData] {
         sortCoins(searchCoins(coins, query: searchText))
@@ -71,13 +65,5 @@ final class MarketViewModel: ObservableObject {
         sortAscending
             ? coins.sorted { key($0) < key($1) }
             : coins.sorted { key($0) > key($1) }
-    }
-
-    func trackSortChanged() {
-        analytics.track(.sortChanged(option: sortOption.rawValue, ascending: sortAscending))
-    }
-
-    func trackSearch(resultCount: Int) {
-        analytics.track(.searchPerformed(resultCount: resultCount))
     }
 }

@@ -12,6 +12,7 @@ import SwiftUI
 struct MarketView: View {
     @EnvironmentObject var marketStore: MarketStore
     @EnvironmentObject var portfolioStore: PortfolioStore
+    @EnvironmentObject var analytics: LocalAnalyticsTracker
     @StateObject private var viewModel = MarketViewModel()
 
     @State private var selectedCoin: CoinMarketData?
@@ -33,6 +34,9 @@ struct MarketView: View {
             }
             .navigationTitle("Market")
             .searchable(text: $viewModel.searchText, prompt: "Search coins")
+            .onSubmit(of: .search) {
+                analytics.track(.searchPerformed(resultCount: displayCoins.count))
+            }
             .toolbar { sortMenu }
             .background(Color.appBackground)
             .refreshable {
@@ -40,6 +44,15 @@ struct MarketView: View {
             }
             .sheet(item: $selectedCoin) { coin in
                 TradeSheet(coin: coin, side: .buy)
+            }
+            .onAppear {
+                analytics.track(.screenViewed(name: "market"))
+            }
+            .onChange(of: viewModel.sortOption) {
+                analytics.track(.sortChanged(option: viewModel.sortOption.rawValue, ascending: viewModel.sortAscending))
+            }
+            .onChange(of: viewModel.sortAscending) {
+                analytics.track(.sortChanged(option: viewModel.sortOption.rawValue, ascending: viewModel.sortAscending))
             }
         }
     }

@@ -89,9 +89,11 @@ final class TradeViewModel: ObservableObject {
     // MARK: - Actions
 
     /// Fills the amount field with a fraction (25% / 50% / 75% / 100%) of
-    /// the maximum tradable amount.
+    /// the maximum tradable amount. Floors at display precision so the
+    /// filled amount can never exceed the maximum it was derived from.
     func applyQuickFraction(_ fraction: Double) {
-        amountText = Formatters.coinAmount(maxAmount * fraction)
+        let amount = Formatters.floorToCoinPrecision(maxAmount * fraction)
+        amountText = Formatters.coinAmount(amount)
     }
 
     /// Executes the trade. Returns true on success so the view can show

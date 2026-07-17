@@ -89,10 +89,18 @@ final class Transaction {
 final class WatchlistItem {
     var coinId: String
     var addedAt: Date
+    // Snapshot of display data at add time, so the row can still render
+    // if the coin later drops out of the top-30 market payload.
+    var coinName: String = ""
+    var symbol: String = ""
+    var imageUrl: String = ""
 
-    init(coinId: String) {
+    init(coinId: String, coinName: String = "", symbol: String = "", imageUrl: String = "") {
         self.coinId = coinId
         self.addedAt = Date()
+        self.coinName = coinName
+        self.symbol = symbol
+        self.imageUrl = imageUrl
     }
 }
 

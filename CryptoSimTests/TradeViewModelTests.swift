@@ -100,6 +100,19 @@ final class TradeViewModelTests: XCTestCase {
         XCTAssertTrue(vm.isValid, "MAX quick amount should be executable, got issue: \(String(describing: vm.validationIssue))")
     }
 
+    /// Regression test: formatting the max with "%.6f" rounds to nearest,
+    /// which for this price rounds UP past the affordable maximum — the
+    /// MAX button would fill an amount the user can't pay for. The fill
+    /// must floor at display precision instead.
+    func testMaxQuickFractionFloorsInsteadOfRoundingUp() {
+        // 10,000 / 5000.00025 = 1.99999990 → "%.6f" would give "2.000000".
+        let vm = makeBuyViewModel(price: 5_000.00025)
+        vm.applyQuickFraction(1.0)
+
+        XCTAssertTrue(vm.isValid, "MAX fill rounded past the spendable maximum: \(vm.amountText)")
+        XCTAssertLessThanOrEqual(vm.totalCost, portfolio.cashBalance)
+    }
+
     // MARK: - Execution
 
     func testExecuteBuySucceedsAndUpdatesPortfolio() {

@@ -14,14 +14,19 @@ struct TradeSheet: View {
     let side: TradeViewModel.Side
 
     @EnvironmentObject var portfolioStore: PortfolioStore
-    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject var analytics: LocalAnalyticsTracker
 
-    // TradeViewModel needs the injected PortfolioStore, which isn't
-    // available until body runs — so the view model is created lazily
-    // in a wrapper view below.
+    // TradeViewModel needs the injected PortfolioStore and analytics,
+    // which aren't available until body runs — so the view model is
+    // created in a wrapper view below.
     var body: some View {
         TradeSheetContent(
-            viewModel: TradeViewModel(coin: coin, side: side, portfolio: portfolioStore)
+            viewModel: TradeViewModel(
+                coin: coin,
+                side: side,
+                portfolio: portfolioStore,
+                analytics: analytics
+            )
         )
     }
 }
@@ -29,6 +34,7 @@ struct TradeSheet: View {
 private struct TradeSheetContent: View {
     @StateObject var viewModel: TradeViewModel
     @Environment(\.dismiss) private var dismiss
+    @FocusState private var amountFieldFocused: Bool
 
     @State private var showError = false
     @State private var showSuccess = false
@@ -61,6 +67,10 @@ private struct TradeSheetContent: View {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") { dismiss() }
                 }
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button("Done") { amountFieldFocused = false }
+                }
             }
             .alert("Trade Failed", isPresented: $showError) {
                 Button("OK", role: .cancel) {}
@@ -84,6 +94,7 @@ private struct TradeSheetContent: View {
             }
             .onAppear {
                 viewModel.trackSheetOpened()
+                amountFieldFocused = true
             }
         }
     }
@@ -116,6 +127,7 @@ private struct TradeSheetContent: View {
             HStack {
                 TextField("0.00", text: $viewModel.amountText)
                     .keyboardType(.decimalPad)
+                    .focused($amountFieldFocused)
                     .font(.system(size: 32, weight: .bold))
                     .multilineTextAlignment(.center)
 

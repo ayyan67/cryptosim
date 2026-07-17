@@ -65,6 +65,10 @@ final class PortfolioStore: ObservableObject {
     private let modelContext: ModelContext
     private let analytics: AnalyticsTracking
 
+    /// The single persisted Portfolio row (cash + initial balance),
+    /// loaded once so cash updates don't re-fetch it on every trade.
+    private var portfolioModel: Portfolio?
+
     init(modelContext: ModelContext, analytics: AnalyticsTracking) {
         self.modelContext = modelContext
         self.analytics = analytics
@@ -81,16 +85,20 @@ final class PortfolioStore: ObservableObject {
             transactionDescriptor.sortBy = [SortDescriptor(\.timestamp, order: .reverse)]
             transactions = try modelContext.fetch(transactionDescriptor)
 
-            watchlistItems = try modelContext.fetch(FetchDescriptor<WatchlistItem>())
+            var watchlistDescriptor = FetchDescriptor<WatchlistItem>()
+            watchlistDescriptor.sortBy = [SortDescriptor(\.addedAt)]
+            watchlistItems = try modelContext.fetch(watchlistDescriptor)
 
             if let portfolio = try modelContext.fetch(FetchDescriptor<Portfolio>()).first {
-                cashBalance = portfolio.cashBalance
-                initialBalance = portfolio.initialBalance
+                portfolioModel = portfolio
             } else {
                 let newPortfolio = Portfolio()
                 modelContext.insert(newPortfolio)
+                portfolioModel = newPortfolio
                 save(context: "create initial portfolio")
             }
+            cashBalance = portfolioModel?.cashBalance ?? PortfolioStore.startingBalance
+            initialBalance = portfolioModel?.initialBalance ?? PortfolioStore.startingBalance
             AppLog.persistence.info("Loaded \(self.holdings.count) holdings, \(self.transactions.count) transactions")
         } catch {
             AppLog.persistence.error("Failed to load portfolio data: \(error.localizedDescription, privacy: .public)")
@@ -225,13 +233,28 @@ final class PortfolioStore: ObservableObject {
     }
 
     private func persistCashBalance() {
-        do {
-            if let portfolio = try modelContext.fetch(FetchDescriptor<Portfolio>()).first {
-                portfolio.cashBalance = cashBalance
-            }
-        } catch {
-            AppLog.persistence.error("Failed to persist cash balance: \(error.localizedDescription, privacy: .public)")
-        }
+        portfolioModel?.cashBalance = cashBalance
+    }
+
+    // MARK: - Reset
+
+    /// Wipes holdings and history and restores the starting cash balance.
+    /// The watchlist is deliberately kept — it's a preference, not a position.
+    func resetPortfolio() {
+        for holding in holdings { modelContext.delete(holding) }
+        holdings = []
+
+        for transaction in transactions { modelContext.delete(transaction) }
+        transactions = []
+
+        cashBalance = PortfolioStore.startingBalance
+        initialBalance = PortfolioStore.startingBalance
+        portfolioModel?.cashBalance = cashBalance
+        portfolioModel?.initialBalance = initialBalance
+
+        save(context: "reset portfolio")
+        analytics.track(.portfolioReset)
+        AppLog.trading.info("Portfolio reset to \(PortfolioStore.startingBalance)")
     }
 
     // MARK: - Watchlist
@@ -240,13 +263,18 @@ final class PortfolioStore: ObservableObject {
         watchlistItems.contains { $0.coinId == coinId }
     }
 
-    func addToWatchlist(coinId: String) {
-        guard !isInWatchlist(coinId: coinId) else { return }
-        let item = WatchlistItem(coinId: coinId)
+    func addToWatchlist(coin: CoinMarketData) {
+        guard !isInWatchlist(coinId: coin.id) else { return }
+        let item = WatchlistItem(
+            coinId: coin.id,
+            coinName: coin.name,
+            symbol: coin.symbol,
+            imageUrl: coin.image
+        )
         modelContext.insert(item)
         watchlistItems.append(item)
-        save(context: "watchlist add \(coinId)")
-        analytics.track(.watchlistAdded(coinId: coinId))
+        save(context: "watchlist add \(coin.id)")
+        analytics.track(.watchlistAdded(coinId: coin.id))
     }
 
     func removeFromWatchlist(coinId: String) {
@@ -257,11 +285,11 @@ final class PortfolioStore: ObservableObject {
         analytics.track(.watchlistRemoved(coinId: coinId))
     }
 
-    func toggleWatchlist(coinId: String) {
-        if isInWatchlist(coinId: coinId) {
-            removeFromWatchlist(coinId: coinId)
+    func toggleWatchlist(coin: CoinMarketData) {
+        if isInWatchlist(coinId: coin.id) {
+            removeFromWatchlist(coinId: coin.id)
         } else {
-            addToWatchlist(coinId: coinId)
+            addToWatchlist(coin: coin)
         }
     }
 

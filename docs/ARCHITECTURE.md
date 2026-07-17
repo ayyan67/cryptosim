@@ -70,7 +70,10 @@ A screen with no real presentation logic (History, Watchlist) doesn't get a cere
 TradeSheet binds a text field to `TradeViewModel.amountText` → `validationIssue` recomputes on each keystroke (button disabled state) → confirm → `viewModel.execute()` → `PortfolioStore.buy` checks invariants, throws typed `TradeError` on violation → on success: cash deducted, holding upserted with volume-weighted average cost, `Transaction` recorded, one SwiftData save, `trade_executed` analytics event → `@Published` changes propagate to Portfolio/History tabs automatically.
 
 **Refresh cycle:**
-A 30s timer in `RootTabView` fires only while `scenePhase == .active`; foregrounding triggers an immediate (TTL-respecting) refresh. `MarketStore` coalesces overlapping refresh calls onto one in-flight task, so a timer tick and a pull-to-refresh can't double-hit the rate-limited API.
+The 30s Combine timer lives *inside* `MarketStore` (`startAutoRefresh()`), not in a view — a view-held `Timer.publish` gets recreated on every re-render. `RootTabView` starts it once and forwards scene-phase changes; ticks are ignored while the app is backgrounded, and foregrounding triggers an immediate (TTL-respecting) refresh. The store coalesces overlapping refresh calls onto one in-flight task, so a timer tick and a pull-to-refresh can't double-hit the rate-limited API.
+
+**Navigation:**
+One canonical detail screen: Market, Watchlist, and Portfolio rows all push the same position-aware `CoinDetailView` (it grows a "Your Position" section when the user holds the coin, queried live from the store so a full sell can never leave the screen pointing at a deleted model). Sheets are reserved for modal *tasks* (trading, adding to watchlist); drill-down content (Performance) is a push. `TabRouter` owns the `TabView` selection so empty states can route the user somewhere actionable ("Browse Market" actually switches tabs).
 
 ## Error handling policy
 

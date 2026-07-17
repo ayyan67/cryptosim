@@ -80,9 +80,25 @@ enum Formatters {
         return "\(sign)\(currency(abs(value)))"
     }
 
-    /// Crypto quantity, 6 decimal places (satoshi-ish display precision).
+    /// Crypto quantity: up to 6 decimal places with trailing zeros trimmed,
+    /// so 0.05 reads "0.05", not "0.050000".
     static func coinAmount(_ value: Double) -> String {
-        String(format: "%.6f", value)
+        var text = String(format: "%.6f", value)
+        while text.hasSuffix("0") {
+            text.removeLast()
+        }
+        if text.hasSuffix(".") {
+            text.removeLast()
+        }
+        return text
+    }
+
+    /// Rounds a quantity *down* at 6 decimals. Used when pre-filling trade
+    /// amounts from a computed maximum — plain "%.6f" rounds to nearest,
+    /// which can round UP past the maximum and make the MAX button produce
+    /// an unaffordable amount.
+    static func floorToCoinPrecision(_ value: Double) -> Double {
+        (value * 1_000_000).rounded(.down) / 1_000_000
     }
 
     static func transactionDate(_ date: Date) -> String {

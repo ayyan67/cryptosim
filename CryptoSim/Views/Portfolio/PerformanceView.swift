@@ -8,10 +8,11 @@
 
 import SwiftUI
 
+// Pushed from PortfolioView (drill-down content, not a modal task), so it
+// renders inside the portfolio tab's NavigationStack.
 struct PerformanceView: View {
     @EnvironmentObject var marketStore: MarketStore
     @EnvironmentObject var portfolioStore: PortfolioStore
-    @Environment(\.dismiss) private var dismiss
 
     private var totalBalance: Double {
         portfolioStore.totalPortfolioValue(coins: marketStore.coins)
@@ -36,26 +37,19 @@ struct PerformanceView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(spacing: 24) {
-                    summaryCard
+        ScrollView {
+            VStack(spacing: 24) {
+                summaryCard
 
-                    breakdown
+                breakdown
 
-                    allocation
-                }
-                .padding(.vertical)
+                allocation
             }
-            .navigationTitle("Performance")
-            .navigationBarTitleDisplayMode(.inline)
-            .background(Color.appBackground)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Done") { dismiss() }
-                }
-            }
+            .padding(.vertical)
         }
+        .navigationTitle("Performance")
+        .navigationBarTitleDisplayMode(.inline)
+        .background(Color.appBackground)
     }
 
     private var summaryCard: some View {

@@ -9,6 +9,8 @@ import SwiftUI
 
 struct HistoryView: View {
     @EnvironmentObject var portfolioStore: PortfolioStore
+    @EnvironmentObject var analytics: LocalAnalyticsTracker
+    @EnvironmentObject var router: TabRouter
 
     @State private var filterType: FilterType = .all
     @State private var searchText = ""
@@ -55,6 +57,9 @@ struct HistoryView: View {
             .navigationTitle("History")
             .searchable(text: $searchText, prompt: "Search transactions")
             .background(Color.appBackground)
+            .onAppear {
+                analytics.track(.screenViewed(name: "history"))
+            }
         }
     }
 
@@ -70,6 +75,10 @@ struct HistoryView: View {
                 .font(.subheadline)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
+            Button("Browse Market") {
+                router.selection = .market
+            }
+            .buttonStyle(.borderedProminent)
         }
         .padding()
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -92,11 +101,22 @@ struct HistoryView: View {
                 .padding(.vertical, 12)
             }
 
-            List(filteredTransactions, id: \.id) { transaction in
-                HistoryRow(transaction: transaction)
-                    .listRowBackground(Color.clear)
+            if filteredTransactions.isEmpty {
+                // Transactions exist but the filter/search matches none —
+                // say so instead of showing a silently blank list.
+                ContentUnavailableView(
+                    "No matching transactions",
+                    systemImage: "magnifyingglass",
+                    description: Text("Try a different filter or search term")
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                List(filteredTransactions, id: \.id) { transaction in
+                    HistoryRow(transaction: transaction)
+                        .listRowBackground(Color.clear)
+                }
+                .listStyle(.plain)
             }
-            .listStyle(.plain)
         }
     }
 }

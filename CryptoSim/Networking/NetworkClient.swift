@@ -55,6 +55,8 @@ final class URLSessionNetworkClient: NetworkClient {
     }
 
     private func performOnce(_ url: URL, endpointName: String) async throws -> Data {
+        try Task.checkCancellation()
+
         let start = ContinuousClock.now
 
         func elapsed() -> TimeInterval {
@@ -77,6 +79,12 @@ final class URLSessionNetworkClient: NetworkClient {
         let response: URLResponse
         do {
             (data, response) = try await session.data(from: url)
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch let urlError as URLError where urlError.code == .cancelled {
+            // The caller's Task was cancelled (e.g. the user switched chart
+            // ranges). Not a failure — don't pollute metrics, don't retry.
+            throw CancellationError()
         } catch {
             record(.transportError)
             AppLog.network.error("Transport error for \(endpointName, privacy: .public): \(error.localizedDescription, privacy: .public)")

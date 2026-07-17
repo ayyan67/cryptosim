@@ -1,6 +1,6 @@
 # Testing
 
-64 unit tests, 7 suites, <1s total. Run with `⌘U` in Xcode or:
+72 unit tests, 7 suites, <1s total. Run with `⌘U` in Xcode or:
 
 ```bash
 xcodebuild -project CryptoSim.xcodeproj -scheme CryptoSim \
@@ -13,13 +13,13 @@ Test the layers where being wrong is expensive, using the seams the architecture
 
 | Suite | What it protects | Doubles used |
 |---|---|---|
-| `PortfolioStoreTests` (18) | Money math: average cost, cash conservation, oversell/overspend rejection, dust cleanup, valuation fallbacks, persistence round-trip | In-memory SwiftData container, `AnalyticsSpy` |
-| `TradeViewModelTests` (11) | Trade validation: every rejection reason, comma-decimal parsing, quick-percent fills, MAX-is-always-executable | Real `PortfolioStore` over in-memory container |
+| `PortfolioStoreTests` (20) | Money math: average cost, cash conservation, oversell/overspend rejection, dust cleanup, valuation fallbacks, persistence round-trip, reset, watchlist snapshots | In-memory SwiftData container, `AnalyticsSpy` |
+| `TradeViewModelTests` (12) | Trade validation: every rejection reason, comma-decimal parsing, quick-percent fills, MAX-fill floors-not-rounds regression | Real `PortfolioStore` over in-memory container |
 | `MarketViewModelTests` (11) | Search + sort, incl. the strict-weak-ordering regression test | none (pure logic) |
-| `MarketStoreTests` (6) | Refresh lifecycle: TTL cache, forced refresh, stale-data-on-failure | `MockMarketDataService` |
+| `MarketStoreTests` (9) | Refresh lifecycle: TTL cache, forced refresh, stale-data-on-failure, auto-refresh timer, scene-phase gating | `MockMarketDataService` |
 | `NetworkClientTests` (7) | Status mapping, retry-on-transient, no-retry-on-429, metrics emission | `StubURLProtocol` (no real network) |
 | `CoinDecodingTests` (4) | API contract: real CoinGecko fixture incl. null fields, malformed chart entries | JSON fixture file |
-| `FormattersTests` (7) | Display formatting edge cases | none |
+| `FormattersTests` (9) | Display formatting edge cases: grouping, zero, sub-cent precision, trimming, floor, parsing | none |
 
 ## Conventions
 

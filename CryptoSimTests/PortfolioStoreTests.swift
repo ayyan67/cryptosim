@@ -195,17 +195,48 @@ final class PortfolioStoreTests: XCTestCase {
     // MARK: - Watchlist
 
     func testWatchlistAddRemoveAndToggle() {
+        let bitcoin = makeCoin()
         XCTAssertFalse(store.isInWatchlist(coinId: "bitcoin"))
 
-        store.addToWatchlist(coinId: "bitcoin")
+        store.addToWatchlist(coin: bitcoin)
         XCTAssertTrue(store.isInWatchlist(coinId: "bitcoin"))
 
         // Duplicate adds are ignored.
-        store.addToWatchlist(coinId: "bitcoin")
+        store.addToWatchlist(coin: bitcoin)
         XCTAssertEqual(store.watchlistItems.count, 1)
 
-        store.toggleWatchlist(coinId: "bitcoin")
+        store.toggleWatchlist(coin: bitcoin)
         XCTAssertFalse(store.isInWatchlist(coinId: "bitcoin"))
+    }
+
+    func testWatchlistSnapshotsDisplayData() {
+        // The item must carry enough to render a row even if the coin
+        // later drops out of the market payload.
+        store.addToWatchlist(coin: makeCoin(id: "ethereum", symbol: "eth", name: "Ethereum"))
+
+        let item = store.watchlistItems[0]
+        XCTAssertEqual(item.coinName, "Ethereum")
+        XCTAssertEqual(item.symbol, "eth")
+    }
+
+    // MARK: - Reset
+
+    func testResetClearsPositionsAndRestoresCashButKeepsWatchlist() throws {
+        let coin = makeCoin(currentPrice: 50_000)
+        try store.buy(coin: coin, amount: 0.1)
+        store.addToWatchlist(coin: coin)
+
+        store.resetPortfolio()
+
+        XCTAssertEqual(store.cashBalance, 10_000, accuracy: 0.001)
+        XCTAssertTrue(store.holdings.isEmpty)
+        XCTAssertTrue(store.transactions.isEmpty)
+        XCTAssertTrue(store.isInWatchlist(coinId: "bitcoin"), "Watchlist is a preference, not a position")
+
+        // And the reset state survives a relaunch.
+        let reloaded = PortfolioStore(modelContext: container.mainContext, analytics: AnalyticsSpy())
+        XCTAssertEqual(reloaded.cashBalance, 10_000, accuracy: 0.001)
+        XCTAssertTrue(reloaded.holdings.isEmpty)
     }
 
     // MARK: - Persistence round-trip
@@ -213,7 +244,7 @@ final class PortfolioStoreTests: XCTestCase {
     func testStateSurvivesStoreReload() throws {
         let coin = makeCoin(currentPrice: 50_000)
         try store.buy(coin: coin, amount: 0.1)
-        store.addToWatchlist(coinId: "ethereum")
+        store.addToWatchlist(coin: makeCoin(id: "ethereum", symbol: "eth", name: "Ethereum"))
 
         // New store instance over the same container = app relaunch.
         let reloaded = PortfolioStore(modelContext: container.mainContext, analytics: AnalyticsSpy())

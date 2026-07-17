@@ -22,6 +22,7 @@ enum AnalyticsEvent {
     case tradeFailed(coinId: String, side: String, reason: String)
     case watchlistAdded(coinId: String)
     case watchlistRemoved(coinId: String)
+    case portfolioReset
 
     enum RefreshSource: String {
         case appLaunch = "app_launch"
@@ -46,6 +47,7 @@ enum AnalyticsEvent {
         case .tradeFailed: return "trade_failed"
         case .watchlistAdded: return "watchlist_added"
         case .watchlistRemoved: return "watchlist_removed"
+        case .portfolioReset: return "portfolio_reset"
         }
     }
 
@@ -80,6 +82,8 @@ enum AnalyticsEvent {
             return ["coin_id": coinId]
         case .watchlistRemoved(let coinId):
             return ["coin_id": coinId]
+        case .portfolioReset:
+            return [:]
         }
     }
 }

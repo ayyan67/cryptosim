@@ -36,6 +36,12 @@ final class MarketStore: ObservableObject {
     /// Prevents overlapping refreshes (timer + pull-to-refresh racing).
     private var inFlightRefresh: Task<Void, Never>?
 
+    /// The 30-second Combine auto-refresh pipeline. Owned by the store —
+    /// not the view — so re-rendering can't recreate/reset the timer, and
+    /// the refresh policy is testable with a short interval.
+    private var autoRefreshCancellable: AnyCancellable?
+    private var isSceneActive = true
+
     init(
         service: MarketDataProviding,
         analytics: AnalyticsTracking,
@@ -44,6 +50,36 @@ final class MarketStore: ObservableObject {
         self.service = service
         self.analytics = analytics
         self.cacheTTL = cacheTTL
+    }
+
+    // MARK: - Auto-refresh lifecycle
+
+    /// Starts the periodic force-refresh. Ticks are ignored while the
+    /// scene is inactive (no point burning a rate-limited API in the
+    /// background).
+    func startAutoRefresh(interval: TimeInterval = 30) {
+        autoRefreshCancellable = Timer.publish(every: interval, on: .main, in: .common)
+            .autoconnect()
+            .sink { [weak self] _ in
+                Task { @MainActor [weak self] in
+                    guard let self, self.isSceneActive else { return }
+                    await self.refresh(force: true, source: .autoTimer)
+                }
+            }
+    }
+
+    func stopAutoRefresh() {
+        autoRefreshCancellable = nil
+    }
+
+    /// Called by the UI when the scene phase changes. Returning to the
+    /// foreground triggers an immediate (TTL-respecting) refresh.
+    func setSceneActive(_ active: Bool) {
+        let wasActive = isSceneActive
+        isSceneActive = active
+        if active && !wasActive {
+            Task { await refresh(source: .foreground) }
+        }
     }
 
     var isLoading: Bool { loadState == .loading }
