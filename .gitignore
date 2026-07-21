@@ -22,3 +22,7 @@ xcuserdata/
 interview/
 learning/
 Ayyan_Qamer_Resume_iOS.pdf
+
+# Local AI-assistant context (works fine untracked; contains personal notes)
+CLAUDE.md
+.claude-context/
