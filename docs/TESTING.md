@@ -1,10 +1,10 @@
 # Testing
 
-72 unit tests, 7 suites, <1s total. Run with `⌘U` in Xcode or:
+73 unit tests, 7 suites, <1s total. Run with `⌘U` in Xcode or:
 
 ```bash
 xcodebuild -project CryptoSim.xcodeproj -scheme CryptoSim \
-  -destination 'platform=iOS Simulator,name=iPhone 16 Pro,OS=18.5' test
+  -destination 'platform=iOS Simulator,name=iPhone 17' test
 ```
 
 ## Strategy
@@ -19,7 +19,7 @@ Test the layers where being wrong is expensive, using the seams the architecture
 | `MarketStoreTests` (9) | Refresh lifecycle: TTL cache, forced refresh, stale-data-on-failure, auto-refresh timer, scene-phase gating | `MockMarketDataService` |
 | `NetworkClientTests` (7) | Status mapping, retry-on-transient, no-retry-on-429, metrics emission | `StubURLProtocol` (no real network) |
 | `CoinDecodingTests` (4) | API contract: real CoinGecko fixture incl. null fields, malformed chart entries | JSON fixture file |
-| `FormattersTests` (9) | Display formatting edge cases: grouping, zero, sub-cent precision, trimming, floor, parsing | none |
+| `FormattersTests` (10) | Display formatting edge cases: grouping, zero, floating-point residue, sub-cent precision, trimming, floor, parsing | none |
 
 ## Conventions
 

@@ -83,6 +83,6 @@ One canonical detail screen: Market, Watchlist, and Portfolio rows all push the 
 
 ## Concurrency model
 
-- Stores and view models are `@MainActor` — published state only mutates on the main thread (the class of bug behind a Core Data threading crash I fixed at WhatsApp).
+- Stores and view models are `@MainActor` — published state only mutates on the main thread. Mutating UI or persistence state off the main thread is a common source of hard-to-reproduce crashes; `@MainActor` makes the rule explicit and lets the compiler flag violations.
 - The network client is actor-agnostic; async/await end to end from `URLSession` up.
 - Chart loads use `.task(id: selectedRange)` so switching time ranges cancels the in-flight request instead of racing it.

@@ -6,7 +6,7 @@ v1 was the app I submitted for COSC 4355 — it worked, demoed well, and got the
 
 **v1:** `CryptoAppApp.init` called `fatalError("Could not create ModelContainer")` if SwiftData failed to open. Any disk-full/migration issue = guaranteed crash loop.
 
-**v2:** Falls back to an in-memory container — the session works, trades just don't persist — and logs a `fault` so the failure is visible. At WhatsApp I removed 15+ crash-prone `fatalError` sites for exactly this reason: a degraded session beats a crash, always.
+**v2:** Falls back to an in-memory container — the session works, trades just don't persist — and logs a `fault` so the failure is visible. A degraded session beats a crash loop: the user keeps a working app, and the fault shows up in logs for follow-up.
 
 ## 2. Singleton service → protocol-based dependency injection
 
@@ -14,7 +14,7 @@ v1 was the app I submitted for COSC 4355 — it worked, demoed well, and got the
 
 **v2:** Four separable layers: `NetworkClient` (transport) → `MarketDataProviding` (domain API) → `MarketStore` (observable state) → view models. Each seam has a protocol; the whole graph is wired once in the composition root. Tests inject mocks anywhere.
 
-## 3. No tests → 72 unit tests
+## 3. No tests → 73 unit tests
 
 **v1:** Zero tests. The money math (average cost basis, cash conservation) was verified by tapping around in the simulator.
 
@@ -77,7 +77,7 @@ After the architecture rework I did a dedicated UX-consistency pass, because v1'
 
 ## 11. Deliberate non-changes (tradeoffs I'd defend)
 
-- **`Double` for money, still.** For a paper-trading simulator where values are display-only, `Double`'s error (~1e-12 relative) is invisible at 6 decimal places, and SwiftData/charts interop is simpler. A real payments product needs `Decimal` end to end — at WhatsApp money was integer minor-units + currency code on the wire. Migrating this app is mechanical and on the roadmap; knowing *when* the cost is justified is the actual skill.
+- **`Double` for money, still.** This is a known shortcut, not a recommendation. It's acceptable here only because nothing is real money: balances are simulated and every value is display-only, and `Double` keeps SwiftData storage and chart math simple. The cost is visible floating-point residue (e.g. P&L right after a buy comes out as ~1e-12 instead of 0; the formatter now rounds that to "$0.00" and a test pins it). For real money I would use `Decimal` in the app (or integer minor units plus a currency code at the API boundary) so amounts are exact and rounding is explicit. Switching this app would touch the SwiftData models, the store math, the formatters, and most tests, so it's listed as next work rather than done here.
 - **Hand-rolled `Path` charts, not Swift Charts.** Building the normalization + gradient fill from scratch was the learning objective, it's dependency-free, and it renders 200+ points fine. Swift Charts would win the moment I need axes, scrubbing, or accessibility.
-- **`ObservableObject`/Combine, not `@Observable`.** Matches the Combine-based refresh pipeline and the codebase I work in daily. `@Observable` migration is straightforward and would cut some invalidation overhead; it's listed as next work, not blocking work.
+- **`ObservableObject`/Combine, not `@Observable`.** Matches the Combine-based refresh pipeline. `@Observable` migration is straightforward and would cut some invalidation overhead; it's listed as next work, not blocking work.
 - **No full Coordinator layer.** Four tabs and one push-destination don't earn one — though `TabRouter` (which owns tab selection for programmatic navigation) is the seed of exactly that pattern. The moment navigation needs deep links or multi-step flows, `NavigationStack` paths join it in a real router — the store/VM layering doesn't change.
