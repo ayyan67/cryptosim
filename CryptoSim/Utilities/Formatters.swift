@@ -31,7 +31,9 @@ enum Formatters {
     /// USD price with precision that adapts to magnitude, so sub-cent
     /// coins (e.g. SHIB) don't render as "$0.00".
     static func currency(_ value: Double) -> String {
-        if value == 0 {
+        // Anything that would print as $0.000000 is floating-point residue
+        // (e.g. P&L right after a buy), so render it as a plain zero.
+        if abs(value) < 0.0000005 {
             return "$0.00"
         } else if value >= 1 {
             return dollarFormatter.string(from: NSNumber(value: value)) ?? String(format: "$%.2f", value)
@@ -76,8 +78,9 @@ enum Formatters {
 
     /// "+$123.45" / "-$67.89"
     static func signedCurrency(_ value: Double) -> String {
-        let sign = value >= 0 ? "+" : "-"
-        return "\(sign)\(currency(abs(value)))"
+        let magnitude = currency(abs(value))
+        let sign = (value >= 0 || magnitude == "$0.00") ? "+" : "-"
+        return "\(sign)\(magnitude)"
     }
 
     /// Crypto quantity: up to 6 decimal places with trailing zeros trimmed,

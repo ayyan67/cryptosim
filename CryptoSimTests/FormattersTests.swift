@@ -31,6 +31,13 @@ final class FormattersTests: XCTestCase {
         XCTAssertEqual(Formatters.signedCurrency(0), "+$0.00")
     }
 
+    func testSignedCurrencyHidesFloatingPointResidue() {
+        // P&L immediately after a buy is often ~1e-12, not exactly zero.
+        XCTAssertEqual(Formatters.signedCurrency(1.8e-12), "+$0.00")
+        XCTAssertEqual(Formatters.signedCurrency(-3e-13), "+$0.00")
+        XCTAssertEqual(Formatters.currency(0.000001), "$0.000001")
+    }
+
     func testSignedPercent() {
         XCTAssertEqual(Formatters.signedPercent(2.456), "+2.46%")
         XCTAssertEqual(Formatters.signedPercent(-1.1), "-1.10%")
